@@ -53,7 +53,7 @@ INSERT INTO `settings` (`key`, `value`) VALUES
 ON DUPLICATE KEY UPDATE `key`=`key`;
 
 -- Insert default admin user if not exists
--- The default password is 'admin123' (hashed using BCRYPT)
+-- The default password is '@Joaquim2006' (hashed using BCRYPT)
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `cpf`, `rg`, `city`, `address_number`, `contact`, `role`, `status`) VALUES 
-(1, 'Administrador Geral', 'admin@advocacia.com', '$2y$10$o1rXW8B3.iWfMv8oK7uEAuGep8D0GzWv2/Wp3x9wO8YqL5Fvq0xze', '000.000.000-00', '0000000000', 'São Paulo', '100', '(11) 99999-9999', 'admin', 'active')
+(1, 'Joaquim Moura', 'joaquim.moura@aluno.ifsertao-pe.edu.br', '$2y$10$ATs1d4Hh1l8SYdfTV/YPCOVeWAeLiQiXkadNq2cbfGAUIXje3Jovm', '000.000.000-00', '0000000000', 'São Paulo', '100', '(11) 99999-9999', 'admin', 'active')
 ON DUPLICATE KEY UPDATE `id`=`id`;

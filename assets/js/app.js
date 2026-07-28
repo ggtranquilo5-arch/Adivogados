@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const response = await fetch('api/auth.php', {
                     method: 'POST',
-                    headers: { 'Content-Type:': 'application/json' }, // Fallback to raw json payload parsing
+                    headers: { 'Content-Type': 'application/json' }, // Fallback to raw json payload parsing
                     body: JSON.stringify({ action: 'login', email, password })
                 });
                 const data = await response.json();
