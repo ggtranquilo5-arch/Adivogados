@@ -24,7 +24,7 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Main Style Sheet -->
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link class="main-css" rel="stylesheet" href="assets/css/style.css?v=<?php echo time(); ?>">
 </head>
 <body>
     <!-- App Container -->
@@ -118,7 +118,7 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                             <div class="user-role" id="user-display-role"><?php echo $userRole === 'admin' ? 'Administrador' : 'Advogado'; ?></div>
                         </div>
                     </div>
-                    <button id="btn-logout" class="btn-logout-icon" title="Sair do Sistema">
+                    <button id="btn-logout" class="btn-logout-icon" onclick="handleLogout()" title="Sair do Sistema">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                     </button>
                 </div>
@@ -674,6 +674,6 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
             };
         </script>
     <?php endif; ?>
-    <script src="assets/js/app.js"></script>
+    <script src="assets/js/app.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Auto-refresh interval (10 seconds)
-    const AUTO_REFRESH_INTERVAL = 10000;
+    let AUTO_REFRESH_INTERVAL = 10000;
     let refreshTimer = null;
 
     // Check if user is logged in based on DOM elements
@@ -79,25 +79,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Global logout handler
+    window.handleLogout = async function() {
+        if (confirm('Deseja realmente sair do sistema?')) {
+            try {
+                const response = await fetch('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+        }
+    };
+
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-            if (confirm('Deseja realmente sair do sistema?')) {
-                try {
-                    const response = await fetch('api/auth.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'logout' })
-                    });
-                    const data = await response.json();
-                    if (data.success) {
-                        window.location.reload();
-                    }
-                } catch (err) {
-                    console.error('Logout error:', err);
-                }
-            }
-        });
+        logoutBtn.addEventListener('click', window.handleLogout);
     }
 
     // Stop here if not logged in
@@ -1001,9 +1004,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById(modalId).classList.remove('open');
     };
 
-    // Close modals clicking outside the panel card
+    // Close modals clicking outside the panel card (only for read-only details modal)
     window.addEventListener('click', (e) => {
-        if (e.target.classList.contains('modal')) {
+        if (e.target.id === 'detail-modal') {
             e.target.classList.remove('open');
         }
     });
