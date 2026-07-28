@@ -103,6 +103,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stop here if not logged in
     if (!isLoggedIn) return;
 
+    // Apply global system settings on startup
+    if (typeof SYSTEM_SETTINGS !== 'undefined') {
+        if (SYSTEM_SETTINGS.accentColor) {
+            applyAccentColor(SYSTEM_SETTINGS.accentColor);
+        }
+        if (typeof SYSTEM_SETTINGS.refreshInterval !== 'undefined') {
+            AUTO_REFRESH_INTERVAL = SYSTEM_SETTINGS.refreshInterval;
+        }
+        if (CURRENT_USER && CURRENT_USER.role !== 'admin' && !SYSTEM_SETTINGS.enableLogsForLawyers) {
+            // Apply log visibility restriction immediately on menu load
+            setTimeout(() => {
+                applyLogsVisibility(false);
+            }, 50);
+        }
+    }
+
     // -------------------------------------------------------------
     // 4. NAVIGATION & SPA ROUTING
     // -------------------------------------------------------------
@@ -111,6 +127,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageTitle = document.getElementById('page-title');
 
     function navigateToTab(tabId) {
+        // Secure access control to logs view for standard lawyers
+        if (tabId === 'logs' && CURRENT_USER && CURRENT_USER.role !== 'admin') {
+            if (typeof SYSTEM_SETTINGS !== 'undefined' && !SYSTEM_SETTINGS.enableLogsForLawyers) {
+                tabId = 'dashboard';
+                history.replaceState(null, null, '#dashboard');
+            }
+        }
+
         appState.activeTab = tabId;
         
         // Update menu active class
@@ -893,6 +917,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) {
             appState.settings = data.settings;
             document.getElementById('settings-company-name').value = data.settings.company_name;
+            
+            const annInput = document.getElementById('settings-global-announcement');
+            if (annInput) annInput.value = data.settings.global_announcement || '';
+            
+            const colorSelect = document.getElementById('settings-accent-color');
+            if (colorSelect) colorSelect.value = data.settings.accent_color || 'blue';
+            
+            const intervalSelect = document.getElementById('settings-refresh-interval');
+            if (intervalSelect) intervalSelect.value = data.settings.refresh_interval || '10000';
+            
+            const logsCheck = document.getElementById('settings-enable-logs');
+            if (logsCheck) logsCheck.checked = data.settings.enable_logs_for_lawyers === '1';
         }
     }
 
@@ -902,7 +938,12 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             const submitBtn = document.getElementById('btn-save-settings');
             const messageDiv = document.getElementById('settings-message');
+            
             const companyName = document.getElementById('settings-company-name').value;
+            const globalAnnouncement = document.getElementById('settings-global-announcement').value;
+            const accentColor = document.getElementById('settings-accent-color').value;
+            const refreshInterval = document.getElementById('settings-refresh-interval').value;
+            const enableLogsForLawyers = document.getElementById('settings-enable-logs').checked ? '1' : '0';
 
             toggleBtnLoading(submitBtn, true);
             messageDiv.classList.add('hidden');
@@ -911,7 +952,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('api/settings.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ company_name: companyName })
+                    body: JSON.stringify({ 
+                        company_name: companyName,
+                        global_announcement: globalAnnouncement,
+                        accent_color: accentColor,
+                        refresh_interval: refreshInterval,
+                        enable_logs_for_lawyers: enableLogsForLawyers
+                    })
                 });
                 const data = await response.json();
 
@@ -920,9 +967,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageDiv.className = 'alert-message success';
                     messageDiv.classList.remove('hidden');
                     
-                    // Update layout headers dynamically (AUTO-REFRESH identity)
+                    appState.settings = data.settings;
+                    
+                    // Apply visual updates immediately
                     document.getElementById('company-header-name').textContent = companyName;
                     document.title = `${companyName} - Portal Jurídico`;
+                    
+                    // Apply dynamic settings
+                    applyAccentColor(accentColor);
+                    setupAutoRefresh(parseInt(refreshInterval));
+                    applyLogsVisibility(enableLogsForLawyers === '1');
+                    updateAnnouncementBanner(globalAnnouncement);
                 } else {
                     messageDiv.textContent = data.message;
                     messageDiv.className = 'alert-message error';
@@ -930,7 +985,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error(err);
-                messageDiv.textContent = 'Erro ao salvar configurações estruturais.';
+                messageDiv.textContent = 'Erro ao salvar as configurações.';
                 messageDiv.className = 'alert-message error';
                 messageDiv.classList.remove('hidden');
             } finally {
@@ -1006,6 +1061,110 @@ document.addEventListener('DOMContentLoaded', () => {
     function pad(val) {
         return String(val).padStart(2, '0');
     }
+
+    // Apply color values to CSS Custom Variables
+    function applyAccentColor(color) {
+        const root = document.documentElement;
+        let primary, hover, rgb;
+        switch(color) {
+            case 'green':
+                primary = '#10b981';
+                hover = '#059669';
+                rgb = '16, 185, 129';
+                break;
+            case 'gold':
+                primary = '#f59e0b';
+                hover = '#d97706';
+                rgb = '245, 158, 11';
+                break;
+            case 'purple':
+                primary = '#8b5cf6';
+                hover = '#6d28d9';
+                rgb = '139, 92, 246';
+                break;
+            case 'red':
+                primary = '#ef4444';
+                hover = '#dc2626';
+                rgb = '239, 68, 68';
+                break;
+            case 'blue':
+            default:
+                primary = '#3b82f6';
+                hover = '#1d4ed8';
+                rgb = '59, 130, 246';
+                break;
+        }
+        root.style.setProperty('--color-primary', primary);
+        root.style.setProperty('--color-primary-hover', hover);
+        root.style.setProperty('--color-primary-rgb', rgb);
+    }
+
+    // Configure background polling refresh timer dynamically
+    function setupAutoRefresh(intervalMs) {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+        AUTO_REFRESH_INTERVAL = intervalMs;
+        const refreshIndicator = document.getElementById('refresh-indicator');
+
+        if (intervalMs > 0) {
+            refreshTimer = setInterval(syncAppState, intervalMs);
+            if (refreshIndicator) refreshIndicator.style.display = 'flex';
+        } else {
+            if (refreshIndicator) refreshIndicator.style.display = 'none';
+        }
+    }
+
+    // Configure logs tab access visibility policies
+    function applyLogsVisibility(enabled) {
+        const logsMenu = document.getElementById('menu-logs');
+        if (logsMenu) {
+            if (enabled || (CURRENT_USER && CURRENT_USER.role === 'admin')) {
+                logsMenu.style.display = 'flex';
+            } else {
+                logsMenu.style.display = 'none';
+                if (appState.activeTab === 'logs') {
+                    navigateToTab('dashboard');
+                }
+            }
+        }
+    }
+
+    // Update announcement banner inside the DOM layout
+    function updateAnnouncementBanner(text) {
+        let banner = document.getElementById('system-announcement');
+        if (text) {
+            if (!banner) {
+                const contentBody = document.querySelector('.content-body');
+                banner = document.createElement('div');
+                banner.id = 'system-announcement';
+                banner.className = 'announcement-banner glass-card';
+                
+                banner.innerHTML = `
+                    <div class="announcement-content">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="announcement-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <span class="announcement-text"></span>
+                    </div>
+                    <button class="announcement-close" onclick="closeAnnouncement()" title="Fechar Comunicado">&times;</button>
+                `;
+                
+                if (contentBody) contentBody.insertBefore(banner, contentBody.firstChild);
+            }
+            
+            const annText = banner.querySelector('.announcement-text');
+            if (annText) annText.textContent = text;
+            banner.style.display = 'flex';
+        } else {
+            if (banner) banner.style.display = 'none';
+        }
+    }
+
+    // Expose closeAnnouncement function
+    window.closeAnnouncement = function() {
+        const banner = document.getElementById('system-announcement');
+        if (banner) banner.style.display = 'none';
+    };
 
     // Expose routing helper to be clickable from anchor templates
     window.navigateToTab = navigateToTab;

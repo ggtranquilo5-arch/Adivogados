@@ -8,6 +8,10 @@ $isLoggedIn = isset($_SESSION['user_id']);
 $userRole = $isLoggedIn ? $_SESSION['user_role'] : '';
 $userName = $isLoggedIn ? $_SESSION['user_name'] : '';
 $companyName = getSystemSetting('company_name', 'Central de Advocacia Inteligente');
+$globalAnnouncement = getSystemSetting('global_announcement', '');
+$accentColor = getSystemSetting('accent_color', 'blue');
+$refreshInterval = getSystemSetting('refresh_interval', '10000');
+$enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR" data-theme="dark">
@@ -142,6 +146,17 @@ $companyName = getSystemSetting('company_name', 'Central de Advocacia Inteligent
                 
                 <!-- Inner Scrollable Area -->
                 <div class="content-body">
+                    
+                    <!-- Global Announcement Banner -->
+                    <?php if (!empty($globalAnnouncement)): ?>
+                        <div class="announcement-banner glass-card" id="system-announcement">
+                            <div class="announcement-content">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="announcement-icon"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                                <span class="announcement-text"><?php echo htmlspecialchars($globalAnnouncement); ?></span>
+                            </div>
+                            <button class="announcement-close" onclick="closeAnnouncement()" title="Fechar Comunicado">&times;</button>
+                        </div>
+                    <?php endif; ?>
                     
                     <!-- 1. DASHBOARD VIEW -->
                     <section id="view-dashboard" class="view-pane active-pane">
@@ -365,6 +380,49 @@ $companyName = getSystemSetting('company_name', 'Central de Advocacia Inteligent
                                     <label for="settings-company-name">Nome da Empresa Central de Gerenciamento</label>
                                     <input type="text" id="settings-company-name" name="company_name" required placeholder="Digite o nome da empresa gerenciadora" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
                                     <span class="field-hint">Este nome aparecerá no cabeçalho do painel para todos os advogados.</span>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="settings-global-announcement">Quadro de Avisos / Comunicado Global</label>
+                                    <textarea id="settings-global-announcement" name="global_announcement" placeholder="Digite um comunicado para exibir no topo do painel de todos os usuários..." rows="3" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>></textarea>
+                                    <span class="field-hint">Deixe em branco para remover o comunicado global.</span>
+                                </div>
+
+                                <div class="form-row">
+                                    <div class="form-group col-6">
+                                        <label for="settings-accent-color">Cor de Destaque do Sistema</label>
+                                        <select id="settings-accent-color" name="accent_color" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                            <option value="blue">Azul Royal (Padrão)</option>
+                                            <option value="green">Verde Esmeralda</option>
+                                            <option value="gold">Dourado Âmbar</option>
+                                            <option value="purple">Púrpura Imperial</option>
+                                            <option value="red">Vermelho Carmim</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group col-6">
+                                        <label for="settings-refresh-interval">Intervalo de Sincronização Automática</label>
+                                        <select id="settings-refresh-interval" name="refresh_interval" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                            <option value="5000">5 Segundos (Muito Rápido)</option>
+                                            <option value="10000">10 Segundos (Recomendado)</option>
+                                            <option value="30000">30 Segundos</option>
+                                            <option value="60000">60 Segundos</option>
+                                            <option value="0">Desativar Sincronização</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="form-group checkbox-toggle-wrapper">
+                                    <label class="switch-label" for="settings-enable-logs">
+                                        <div class="switch-text-group">
+                                            <span class="switch-title">Permitir visualização de logs por advogados</span>
+                                            <span class="field-hint">Se ativado, advogados comuns poderão ver a aba de histórico de auditoria.</span>
+                                        </div>
+                                        <div class="switch">
+                                            <input type="checkbox" id="settings-enable-logs" name="enable_logs_for_lawyers" value="1" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                            <span class="slider round"></span>
+                                        </div>
+                                    </label>
                                 </div>
                                 
                                 <div id="settings-message" class="alert-message hidden"></div>
@@ -604,6 +662,15 @@ $companyName = getSystemSetting('company_name', 'Central de Advocacia Inteligent
                 id: <?php echo $_SESSION['user_id']; ?>,
                 name: <?php echo json_encode($_SESSION['user_name']); ?>,
                 role: <?php echo json_encode($_SESSION['user_role']); ?>
+            };
+
+            // Inject global settings for JavaScript access
+            const SYSTEM_SETTINGS = {
+                companyName: <?php echo json_encode($companyName); ?>,
+                globalAnnouncement: <?php echo json_encode($globalAnnouncement); ?>,
+                accentColor: <?php echo json_encode($accentColor); ?>,
+                refreshInterval: <?php echo (int)$refreshInterval; ?>,
+                enableLogsForLawyers: <?php echo $enableLogsForLawyers === '1' ? 'true' : 'false'; ?>
             };
         </script>
     <?php endif; ?>
