@@ -71,6 +71,60 @@ if ($method === 'POST') {
         exit;
     }
 
+    if ($action === 'register') {
+        $name = isset($input['name']) ? trim($input['name']) : '';
+        $email = isset($input['email']) ? trim($input['email']) : '';
+        $password = isset($input['password']) ? $input['password'] : '';
+        $cpf = isset($input['cpf']) ? trim($input['cpf']) : '';
+        $rg = isset($input['rg']) ? trim($input['rg']) : '';
+        $city = isset($input['city']) ? trim($input['city']) : '';
+        $address_number = isset($input['address_number']) ? trim($input['address_number']) : '';
+        $contact = isset($input['contact']) ? trim($input['contact']) : '';
+        $role = 'lawyer';
+
+        if (empty($name) || empty($email) || empty($password) || empty($cpf) || empty($rg) || empty($city) || empty($address_number) || empty($contact)) {
+            echo json_encode(['success' => false, 'message' => 'Por favor, preencha todos os campos obrigatórios.']);
+            exit;
+        }
+
+        // Check if email already exists
+        $stmt = $pdo->prepare("SELECT id FROM `users` WHERE `email` = ?");
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Este e-mail já está cadastrado no sistema.']);
+            exit;
+        }
+
+        try {
+            $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+            $stmt = $pdo->prepare("INSERT INTO `users` (name, email, password, cpf, rg, city, address_number, contact, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+            $stmt->execute([$name, $email, $hashedPassword, $cpf, $rg, $city, $address_number, $contact, $role]);
+
+            $newId = $pdo->lastInsertId();
+
+            $_SESSION['user_id'] = $newId;
+            $_SESSION['user_name'] = $name;
+            $_SESSION['user_email'] = $email;
+            $_SESSION['user_role'] = $role;
+
+            logActivity($newId, $name, 'Cadastro de Conta', "Realizou auto-cadastro no sistema (ID: $newId)");
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Cadastro realizado com sucesso!',
+                'user' => [
+                    'id' => $newId,
+                    'name' => $name,
+                    'email' => $email,
+                    'role' => $role
+                ]
+            ]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Erro ao realizar cadastro: ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
     if ($action === 'logout') {
         if (isset($_SESSION['user_id'])) {
             logActivity($_SESSION['user_id'], $_SESSION['user_name'], 'Logout', 'Desconectou-se do sistema.');

@@ -79,6 +79,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    window.switchAuthTab = function(tab) {
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const tabBtnLogin = document.getElementById('tab-btn-login');
+        const tabBtnRegister = document.getElementById('tab-btn-register');
+        const titleEl = document.getElementById('auth-title');
+        const subtitleEl = document.getElementById('auth-subtitle');
+
+        if (tab === 'login') {
+            if (loginForm) loginForm.classList.remove('hidden');
+            if (registerForm) registerForm.classList.add('hidden');
+            if (tabBtnLogin) tabBtnLogin.style.backgroundColor = 'var(--color-primary, #2563eb)';
+            if (tabBtnRegister) tabBtnRegister.style.backgroundColor = 'transparent';
+            if (titleEl) titleEl.textContent = 'Acesso ao Sistema';
+            if (subtitleEl) subtitleEl.textContent = 'Entre com suas credenciais jurídicas';
+        } else {
+            if (loginForm) loginForm.classList.add('hidden');
+            if (registerForm) registerForm.classList.remove('hidden');
+            if (tabBtnLogin) tabBtnLogin.style.backgroundColor = 'transparent';
+            if (tabBtnRegister) tabBtnRegister.style.backgroundColor = 'var(--color-primary, #2563eb)';
+            if (titleEl) titleEl.textContent = 'Criar Nova Conta';
+            if (subtitleEl) subtitleEl.textContent = 'Cadastre-se para obter acesso ao portal';
+        }
+    };
+
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('btn-register');
+            const errorDiv = document.getElementById('register-error');
+            
+            toggleBtnLoading(submitBtn, true);
+            errorDiv.classList.add('hidden');
+
+            const payload = {
+                action: 'register',
+                name: document.getElementById('register-name').value,
+                email: document.getElementById('register-email').value,
+                password: document.getElementById('register-password').value,
+                cpf: document.getElementById('register-cpf').value,
+                rg: document.getElementById('register-rg').value,
+                city: document.getElementById('register-city').value,
+                address_number: document.getElementById('register-number').value,
+                contact: document.getElementById('register-contact').value
+            };
+
+            try {
+                const response = await fetch('api/auth.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    errorDiv.textContent = data.message || 'Erro ao realizar cadastro.';
+                    errorDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+                errorDiv.textContent = 'Erro de comunicação com o servidor.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                toggleBtnLoading(submitBtn, false);
+            }
+        });
+    }
+
     // Global logout handler
     window.handleLogout = async function() {
         if (confirm('Deseja realmente sair do sistema?')) {
@@ -421,8 +492,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    // Set search listener
-    document.getElementById('employee-search').addEventListener('input', renderEmployeesTable);
+    // Set search listener with debouncing for optimal UI performance
+    document.getElementById('employee-search').addEventListener('input', debounce(renderEmployeesTable, 150));
 
     // Make functions globally accessible for onclick in HTML template
     window.openEmployeeModal = async function(mode, id = null) {
@@ -618,6 +689,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (req.status === 'pending') {
                 actionButtons += `
+                    <button class="btn-action edit" onclick="openRequestModal('update', ${req.id})" title="Editar Solicitação">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
                     <button class="btn-action check" onclick="completeRequest(${req.id})" title="Marcar como Concluído">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     </button>
@@ -658,8 +732,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    // Set search and status filter listeners
-    document.getElementById('requests-search').addEventListener('input', renderRequestsTable);
+    // Set search and status filter listeners with debouncing
+    document.getElementById('requests-search').addEventListener('input', debounce(renderRequestsTable, 150));
     document.getElementById('filter-status').addEventListener('change', renderRequestsTable);
 
     // Open Request Form Modal
@@ -683,6 +757,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectEl = document.getElementById('request-lawyer');
             if (selectEl) {
                 setTimeout(() => { selectEl.value = CURRENT_USER.id; }, 100);
+            }
+        } else {
+            titleEl.textContent = 'Editar Solicitação de Atendimento';
+            actionEl.value = 'update';
+            idEl.value = id;
+
+            const req = appState.requests.find(r => r.id === id);
+            if (req) {
+                document.getElementById('request-title').value = req.title;
+                document.getElementById('request-cust-name').value = req.customer_name;
+                document.getElementById('request-cust-cpf').value = req.customer_cpf;
+                document.getElementById('request-cust-contact').value = req.customer_contact || '';
+                document.getElementById('request-desc').value = req.description;
+                const selectEl = document.getElementById('request-lawyer');
+                if (selectEl) {
+                    setTimeout(() => { selectEl.value = req.lawyer_id || ''; }, 100);
+                }
             }
         }
         modal.classList.add('open');
@@ -907,8 +998,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     }
 
-    // Set search listener
-    document.getElementById('logs-search').addEventListener('input', renderLogsTable);
+    // Set search listener with debouncing
+    document.getElementById('logs-search').addEventListener('input', debounce(renderLogsTable, 150));
 
     // -------------------------------------------------------------
     // 10. SYSTEM CONFIGURATION MODULE
@@ -1026,6 +1117,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (spinner) spinner.classList.add('hidden');
             if (textSpan) textSpan.style.opacity = '1';
         }
+    }
+
+    // Helper function for debouncing search inputs (optimizes rendering performance)
+    function debounce(func, wait = 150) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
     }
 
     // Helper to escape HTML tags

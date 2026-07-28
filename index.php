@@ -31,16 +31,22 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
     <div id="app" class="<?php echo $isLoggedIn ? 'dashboard-layout' : 'auth-layout'; ?>">
         
         <?php if (!$isLoggedIn): ?>
-            <!-- ================= AUTH/LOGIN CONTAINER ================= -->
+            <!-- ================= AUTH/LOGIN/REGISTER CONTAINER ================= -->
             <div id="login-container" class="glass-card fade-in">
                 <div class="auth-header">
                     <div class="logo-icon">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
                     </div>
-                    <h1>Acesso ao Sistema</h1>
-                    <p>Entre com suas credenciais jurídicas</p>
+                    <h1 id="auth-title">Acesso ao Sistema</h1>
+                    <p id="auth-subtitle">Entre com suas credenciais jurídicas</p>
+                </div>
+
+                <div class="auth-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 0.75rem;">
+                    <button type="button" id="tab-btn-login" class="btn btn-secondary active-auth-tab" style="flex: 1; padding: 0.5rem;" onclick="switchAuthTab('login')">Acessar Conta</button>
+                    <button type="button" id="tab-btn-register" class="btn btn-secondary" style="flex: 1; padding: 0.5rem;" onclick="switchAuthTab('register')">Cadastrar-se</button>
                 </div>
                 
+                <!-- LOGIN FORM -->
                 <form id="login-form" autocomplete="on">
                     <div class="form-group">
                         <label for="login-email">E-mail Corporativo</label>
@@ -65,11 +71,64 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                         <div class="spinner hidden"></div>
                     </button>
                 </form>
+
+                <!-- REGISTER FORM -->
+                <form id="register-form" class="hidden" autocomplete="off">
+                    <div class="form-group">
+                        <label for="register-name">Nome Completo *</label>
+                        <input type="text" id="register-name" name="name" required placeholder="Ex: Dr. Carlos Silva">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="register-email">E-mail *</label>
+                            <input type="email" id="register-email" name="email" required placeholder="carlos@advocacia.com">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="register-password">Senha *</label>
+                            <input type="password" id="register-password" name="password" required placeholder="Mínimo 6 caracteres">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="register-cpf">CPF *</label>
+                            <input type="text" id="register-cpf" name="cpf" required placeholder="000.000.000-00">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="register-rg">RG *</label>
+                            <input type="text" id="register-rg" name="rg" required placeholder="00.000.000-0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-4">
+                            <label for="register-city">Cidade *</label>
+                            <input type="text" id="register-city" name="city" required placeholder="Ex: São Paulo">
+                        </div>
+                        <div class="form-group col-2">
+                            <label for="register-number">Nº *</label>
+                            <input type="text" id="register-number" name="address_number" required placeholder="123">
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="register-contact">Contato *</label>
+                            <input type="text" id="register-contact" name="contact" required placeholder="(00) 00000-0000">
+                        </div>
+                    </div>
+
+                    <div id="register-error" class="alert-message error hidden"></div>
+
+                    <button type="submit" id="btn-register" class="btn btn-primary btn-block">
+                        <span>Criar Minha Conta</span>
+                        <div class="spinner hidden"></div>
+                    </button>
+                </form>
                 
                 <div class="auth-footer">
                     <p>Desenvolvido para segurança e controle de dados juristas.</p>
                 </div>
             </div>
+            
             
         <?php else: ?>
             <!-- ================= SYSTEM DASHBOARD LAYOUT ================= -->

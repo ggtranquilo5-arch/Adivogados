@@ -34,7 +34,9 @@ CREATE TABLE IF NOT EXISTS `requests` (
   `cancellation_reason` TEXT DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`lawyer_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+  FOREIGN KEY (`lawyer_id`) REFERENCES `users`(`id`) ON DELETE SET NULL,
+  KEY `idx_requests_status` (`status`),
+  KEY `idx_requests_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `logs` (
@@ -44,7 +46,9 @@ CREATE TABLE IF NOT EXISTS `logs` (
   `action` VARCHAR(100) NOT NULL,
   `details` TEXT DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL,
+  KEY `idx_logs_created` (`created_at`),
+  KEY `idx_logs_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Insert default configurations if not exists
