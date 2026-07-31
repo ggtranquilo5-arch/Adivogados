@@ -55,7 +55,18 @@ if ($method === 'POST') {
                 echo json_encode([
                     'success' => false,
                     'account_banned' => true,
-                    'message' => 'Sua conta foi suspensa/banida pelo administrador. Acesso negado.'
+                    'status_type' => 'banned',
+                    'message' => 'Sua conta foi banida permanentemente pelo ADM. Acesso negado.'
+                ]);
+                exit;
+            }
+
+            if ($user['status'] === 'suspended') {
+                echo json_encode([
+                    'success' => false,
+                    'account_banned' => true,
+                    'status_type' => 'suspended',
+                    'message' => 'Sua conta foi suspensa/punida temporariamente. Entre em contato com a administração.'
                 ]);
                 exit;
             }

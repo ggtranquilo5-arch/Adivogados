@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------
-    // 7. EMPLOYEES / USERS CRUD MODULE (WITH ID & BAN SYSTEM)
+    // 7. EMPLOYEES / USERS CRUD MODULE (WITH ID, ADM/MODERADOR/MEMBRO & MODERATION)
     // -------------------------------------------------------------
     async function fetchEmployeesData() {
         try {
@@ -444,6 +444,68 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Erro ao buscar dados de usuários:', err);
         }
     }
+
+    // Helper for selecting modal status via pills on top of the modal
+    window.selectModalStatus = function(statusKey) {
+        const inputEl = document.getElementById('employee-status');
+        const badgeEl = document.getElementById('modal-status-badge');
+        
+        if (inputEl) inputEl.value = statusKey;
+
+        const pillActive = document.getElementById('pill-active');
+        const pillSuspended = document.getElementById('pill-suspended');
+        const pillBanned = document.getElementById('pill-banned');
+
+        // Reset all pill styles
+        if (pillActive) {
+            pillActive.style.border = '1px solid rgba(34, 197, 94, 0.3)';
+            pillActive.style.background = 'rgba(34, 197, 94, 0.1)';
+        }
+        if (pillSuspended) {
+            pillSuspended.style.border = '1px solid rgba(234, 179, 8, 0.3)';
+            pillSuspended.style.background = 'rgba(234, 179, 8, 0.1)';
+        }
+        if (pillBanned) {
+            pillBanned.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            pillBanned.style.background = 'rgba(239, 68, 68, 0.1)';
+        }
+
+        // Highlight selected status pill and update header badge
+        if (statusKey === 'active') {
+            if (pillActive) {
+                pillActive.style.border = '2px solid #22c55e';
+                pillActive.style.background = 'rgba(34, 197, 94, 0.25)';
+            }
+            if (badgeEl) {
+                badgeEl.textContent = '🟢 ATIVO';
+                badgeEl.style.background = 'rgba(34,197,94,0.2)';
+                badgeEl.style.color = '#4ade80';
+                badgeEl.style.border = '1px solid rgba(34,197,94,0.4)';
+            }
+        } else if (statusKey === 'suspended') {
+            if (pillSuspended) {
+                pillSuspended.style.border = '2px solid #eab308';
+                pillSuspended.style.background = 'rgba(234, 179, 8, 0.25)';
+            }
+            if (badgeEl) {
+                badgeEl.textContent = '🟡 SUSPENSO / PUNIDO';
+                badgeEl.style.background = 'rgba(234,179,8,0.2)';
+                badgeEl.style.color = '#facc15';
+                badgeEl.style.border = '1px solid rgba(234,179,8,0.4)';
+            }
+        } else if (statusKey === 'banned') {
+            if (pillBanned) {
+                pillBanned.style.border = '2px solid #ef4444';
+                pillBanned.style.background = 'rgba(239, 68, 68, 0.25)';
+            }
+            if (badgeEl) {
+                badgeEl.textContent = '🔴 BANIDO';
+                badgeEl.style.background = 'rgba(239,68,68,0.2)';
+                badgeEl.style.color = '#f87171';
+                badgeEl.style.border = '1px solid rgba(239,68,68,0.4)';
+            }
+        }
+    };
 
     function renderEmployeesTable() {
         const tbody = document.getElementById('employees-list');
@@ -463,8 +525,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const canManageUsers = CURRENT_USER.permissions && CURRENT_USER.permissions.manage_users;
+        const canSuspendUsers = CURRENT_USER.permissions && CURRENT_USER.permissions.suspend_users;
         const canBanUsers = CURRENT_USER.permissions && CURRENT_USER.permissions.ban_users;
-        const hasActions = canManageUsers || canBanUsers;
+        const hasActions = canManageUsers || canSuspendUsers || canBanUsers;
         const totalCols = hasActions ? '8' : '7';
 
         if (filtered.length === 0) {
@@ -474,36 +537,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tbody.innerHTML = filtered.map(emp => {
             const isSelf = (emp.id === CURRENT_USER.id);
+            const isTargetAdmin = (emp.role === 'admin');
+            const isCurrentAdmin = (CURRENT_USER.role === 'admin');
 
             let actionButtonsHtml = '';
             if (hasActions) {
                 actionButtonsHtml = `<td class="action-cell">`;
                 
-                if (canManageUsers) {
+                // Edit button
+                if (canManageUsers && (isCurrentAdmin || !isTargetAdmin)) {
                     actionButtonsHtml += `
-                        <button class="btn-action edit" onclick="openEmployeeModal('update', ${emp.id})" title="Editar Cadastro (ID: #${emp.id})">
+                        <button class="btn-action edit" onclick="openEmployeeModal('update', ${emp.id})" title="Editar Usuário (ID: #${emp.id})">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         </button>
                     `;
                 }
 
-                if (canBanUsers && !isSelf) {
-                    if (emp.status === 'banned') {
-                        actionButtonsHtml += `
-                            <button class="btn-action unban-btn" onclick="toggleBanUser(${emp.id}, '${escapeQuote(emp.name)}', 'banned')" title="Desbanir e Liberar Acesso" style="color: #22c55e; background: rgba(34, 197, 94, 0.15);">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-                            </button>
-                        `;
+                // Moderation buttons: Suspend / Activate / Ban
+                if (!isSelf && (isCurrentAdmin || !isTargetAdmin)) {
+                    if (emp.status === 'active') {
+                        if (canSuspendUsers) {
+                            actionButtonsHtml += `
+                                <button class="btn-action suspend-btn" onclick="handleUserModeration(${emp.id}, '${escapeQuote(emp.name)}', 'suspend')" title="Punir / Suspender Usuário" style="color: #eab308; background: rgba(234, 179, 8, 0.15);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                </button>
+                            `;
+                        }
+                        if (canBanUsers) {
+                            actionButtonsHtml += `
+                                <button class="btn-action ban-btn" onclick="handleUserModeration(${emp.id}, '${escapeQuote(emp.name)}', 'ban')" title="Banir Usuário" style="color: #ef4444; background: rgba(239, 68, 68, 0.15);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                </button>
+                            `;
+                        }
                     } else {
-                        actionButtonsHtml += `
-                            <button class="btn-action ban-btn" onclick="toggleBanUser(${emp.id}, '${escapeQuote(emp.name)}', 'active')" title="Banir e Bloquear Acesso" style="color: #ef4444; background: rgba(239, 68, 68, 0.15);">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-                            </button>
-                        `;
+                        // User is suspended or banned -> offer Activate button
+                        if (canSuspendUsers) {
+                            actionButtonsHtml += `
+                                <button class="btn-action activate-btn" onclick="handleUserModeration(${emp.id}, '${escapeQuote(emp.name)}', 'activate')" title="Ativar / Liberar Acesso" style="color: #22c55e; background: rgba(34, 197, 94, 0.15);">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                                </button>
+                            `;
+                        }
                     }
                 }
 
-                if (canManageUsers && !isSelf) {
+                // Delete button
+                if (canManageUsers && !isSelf && (isCurrentAdmin || !isTargetAdmin)) {
                     actionButtonsHtml += `
                         <button class="btn-action delete" onclick="deleteEmployee(${emp.id}, '${escapeQuote(emp.name)}')" title="Excluir Usuário">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
@@ -514,12 +594,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 actionButtonsHtml += `</td>`;
             }
 
-            const roleLabel = emp.role_label || (emp.role === 'admin' ? 'Administrador' : (emp.role === 'receptionist' ? 'Atendente' : (emp.role === 'viewer' ? 'Estagiário' : 'Advogado')));
-            const roleBadge = `<span class="role-badge role-${emp.role}" style="font-weight: 500;">${escapeHTML(roleLabel)}</span>`;
+            const roleLabel = emp.role_label || (emp.role === 'admin' ? 'ADM' : (emp.role === 'moderator' ? 'Moderador' : 'Membro'));
+            let roleStyle = 'background: rgba(148, 163, 184, 0.15); color: #cbd5e1;';
+            if (emp.role === 'admin') {
+                roleStyle = 'background: rgba(59, 130, 246, 0.2); color: #60a5fa; font-weight: 700; border: 1px solid rgba(59, 130, 246, 0.4);';
+            } else if (emp.role === 'moderator') {
+                roleStyle = 'background: rgba(168, 85, 247, 0.2); color: #c084fc; font-weight: 600; border: 1px solid rgba(168, 85, 247, 0.4);';
+            }
+            const roleBadge = `<span class="badge" style="padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.8rem; ${roleStyle}">${escapeHTML(roleLabel)}</span>`;
 
-            const statusBadge = emp.status === 'banned' ?
-                '<span class="badge badge-banned" style="background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4);">BANIDO</span>' :
-                '<span class="badge badge-active" style="background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.4);">ATIVO</span>';
+            let statusBadge = '<span class="badge badge-active" style="background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.4);">🟢 ATIVO</span>';
+            if (emp.status === 'suspended') {
+                statusBadge = '<span class="badge badge-suspended" style="background: rgba(234,179,8,0.2); color: #facc15; border: 1px solid rgba(234,179,8,0.4);">🟡 SUSPENSO</span>';
+            } else if (emp.status === 'banned') {
+                statusBadge = '<span class="badge badge-banned" style="background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4);">🔴 BANIDO</span>';
+            }
 
             return `
                 <tr>
@@ -572,6 +661,7 @@ document.addEventListener('DOMContentLoaded', () => {
             idEl.value = '';
             passwordEl.required = true;
             if (passHint) passHint.classList.add('hidden');
+            selectModalStatus('active');
         } else {
             titleEl.textContent = 'Editar Dados do Usuário (ID: #' + id + ')';
             actionEl.value = 'update';
@@ -590,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('employee-city').value = emp.city;
                 document.getElementById('employee-number').value = emp.address_number;
                 document.getElementById('employee-contact').value = emp.contact;
-                document.getElementById('employee-status').value = emp.status;
+                selectModalStatus(emp.status || 'active');
             }
         }
         modal.classList.add('open');
@@ -651,21 +741,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Toggle Ban / Unban User Status
-    window.toggleBanUser = async function(id, name, currentStatus) {
-        const isBanning = (currentStatus === 'active');
-        const action = isBanning ? 'ban' : 'unban';
-        const actionLabel = isBanning ? 'BANIR' : 'DESBANIR';
-        const confirmMessage = isBanning 
-            ? `Tem certeza de que deseja BANIR o usuário "${name}" (ID: #${id})?\n\nEste usuário perderá o acesso ao sistema imediatamente.`
-            : `Deseja DESBANIR o usuário "${name}" (ID: #${id}) e liberar o acesso ao sistema novamente?`;
+    // Handle User Moderation: activate, suspend, ban
+    window.handleUserModeration = async function(id, name, actionType) {
+        let actionLabel = 'Ativar';
+        let confirmMessage = `Deseja ATIVAR o usuário "${name}" (ID: #${id}) e liberar o acesso?`;
+
+        if (actionType === 'suspend') {
+            actionLabel = 'Punir / Suspender';
+            confirmMessage = `Tem certeza de que deseja PUNIR / SUSPENDER o usuário "${name}" (ID: #${id})?\n\nO acesso dele ficará suspenso.`;
+        } else if (actionType === 'ban') {
+            actionLabel = 'Banir';
+            confirmMessage = `Tem certeza de que deseja BANIR permanentemente o usuário "${name}" (ID: #${id})?\n\nEle perderá todo o acesso ao sistema.`;
+        }
 
         if (confirm(confirmMessage)) {
             try {
                 const response = await fetch('api/employees.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action, id })
+                    body: JSON.stringify({ action: actionType, id })
                 });
                 const data = await response.json();
 
@@ -679,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error(err);
-                alert('Erro de comunicação com o servidor ao alterar o status de banimento.');
+                alert('Erro de comunicação com o servidor ao aplicar moderação.');
             }
         }
     };

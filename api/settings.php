@@ -29,10 +29,10 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
-    // Only administrators are allowed to change settings
-    if ($_SESSION['user_role'] !== 'admin') {
+    // Only authorized roles are allowed to change settings
+    if (!hasPermission('manage_settings')) {
         http_response_code(403);
-        echo json_encode(['success' => false, 'message' => 'Acesso negado. Apenas administradores podem editar as configurações.']);
+        echo json_encode(['success' => false, 'message' => 'Acesso negado. Seu perfil de usuário não possui permissão para editar as configurações.']);
         exit;
     }
 

@@ -45,7 +45,12 @@ try {
         $stmtUserCheck->execute([$_SESSION['user_id']]);
         $currentUserData = $stmtUserCheck->fetch();
 
-        if (!$currentUserData || $currentUserData['status'] === 'banned') {
+        if (!$currentUserData || in_array($currentUserData['status'], ['banned', 'suspended'])) {
+            $isBanned = ($currentUserData && $currentUserData['status'] === 'banned');
+            $blockMessage = $isBanned 
+                ? 'Sua conta foi banida permanentemente pelo ADM. Acesso negado.' 
+                : 'Sua conta foi suspensa/punida temporariamente. Entre em contato com a administração.';
+
             session_unset();
             session_destroy();
             
@@ -56,11 +61,12 @@ try {
                 echo json_encode([
                     'success' => false,
                     'account_banned' => true,
-                    'message' => 'Sua conta foi suspensa/banida pelo administrador. Acesso negado.'
+                    'status_type' => $currentUserData ? $currentUserData['status'] : 'banned',
+                    'message' => $blockMessage
                 ]);
                 exit;
             } else {
-                header('Location: index.php?error=banned');
+                header('Location: index.php?error=' . ($isBanned ? 'banned' : 'suspended'));
                 exit;
             }
         } else {
@@ -194,12 +200,14 @@ function getSystemSetting($key, $default = '') {
  */
 function getRoleLabel($role) {
     $roles = [
-        'admin' => 'Administrador',
-        'lawyer' => 'Advogado',
-        'receptionist' => 'Atendente',
-        'viewer' => 'Estagiário / Visualizador'
+        'admin' => 'ADM',
+        'moderator' => 'Moderador',
+        'member' => 'Membro',
+        'lawyer' => 'Membro',
+        'receptionist' => 'Moderador',
+        'viewer' => 'Membro'
     ];
-    return isset($roles[$role]) ? $roles[$role] : 'Advogado';
+    return isset($roles[$role]) ? $roles[$role] : 'Membro';
 }
 
 /**
@@ -214,34 +222,31 @@ function getRolePermissions($role = null) {
         'admin' => [
             'manage_users' => true,
             'ban_users' => true,
+            'suspend_users' => true,
+            'manage_roles' => true,
             'manage_requests' => true,
             'view_requests' => true,
             'manage_settings' => true,
             'view_logs' => true,
             'delete_requests' => true
         ],
-        'lawyer' => [
-            'manage_users' => false,
+        'moderator' => [
+            'manage_users' => true,
             'ban_users' => false,
+            'suspend_users' => true,
+            'manage_roles' => false,
             'manage_requests' => true,
             'view_requests' => true,
             'manage_settings' => false,
             'view_logs' => (getSystemSetting('enable_logs_for_lawyers', '1') === '1'),
             'delete_requests' => false
         ],
-        'receptionist' => [
+        'member' => [
             'manage_users' => false,
             'ban_users' => false,
+            'suspend_users' => false,
+            'manage_roles' => false,
             'manage_requests' => true,
-            'view_requests' => true,
-            'manage_settings' => false,
-            'view_logs' => false,
-            'delete_requests' => false
-        ],
-        'viewer' => [
-            'manage_users' => false,
-            'ban_users' => false,
-            'manage_requests' => false,
             'view_requests' => true,
             'manage_settings' => false,
             'view_logs' => false,
@@ -249,7 +254,14 @@ function getRolePermissions($role = null) {
         ]
     ];
 
-    return isset($permissions[$role]) ? $permissions[$role] : $permissions['lawyer'];
+    // Map legacy roles
+    if ($role === 'lawyer' || $role === 'viewer') {
+        $role = 'member';
+    } else if ($role === 'receptionist') {
+        $role = 'moderator';
+    }
+
+    return isset($permissions[$role]) ? $permissions[$role] : $permissions['member'];
 }
 
 /**

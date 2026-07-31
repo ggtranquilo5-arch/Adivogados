@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS `settings` (
   `value` TEXT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Supported roles: 'admin' (Administrador), 'lawyer' (Advogado), 'receptionist' (Atendente), 'viewer' (Estagiário/Visualizador)
--- Supported status: 'active' (Ativo), 'banned' (Banido/Suspenso)
+-- Supported roles: 'admin' (ADM - Poder Total), 'moderator' (Moderador), 'member' (Membro)
+-- Supported status: 'active' (Ativo), 'suspended' (Punido/Suspenso), 'banned' (Banido)
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(150) NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `city` VARCHAR(100) NOT NULL,
   `address_number` VARCHAR(20) NOT NULL,
   `contact` VARCHAR(50) NOT NULL,
-  `role` VARCHAR(50) NOT NULL DEFAULT 'lawyer',
+  `role` VARCHAR(50) NOT NULL DEFAULT 'member',
   `status` VARCHAR(20) NOT NULL DEFAULT 'active',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

@@ -444,20 +444,20 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                             <form id="settings-form">
                                 <div class="form-group">
                                     <label for="settings-company-name">Nome da Empresa Central de Gerenciamento</label>
-                                    <input type="text" id="settings-company-name" name="company_name" required placeholder="Digite o nome da empresa gerenciadora" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                    <input type="text" id="settings-company-name" name="company_name" required placeholder="Digite o nome da empresa gerenciadora" <?php echo !hasPermission('manage_settings') ? 'disabled' : ''; ?>>
                                     <span class="field-hint">Este nome aparecerá no cabeçalho do painel para todos os advogados.</span>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="settings-global-announcement">Quadro de Avisos / Comunicado Global</label>
-                                    <textarea id="settings-global-announcement" name="global_announcement" placeholder="Digite um comunicado para exibir no topo do painel de todos os usuários..." rows="3" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>></textarea>
+                                    <textarea id="settings-global-announcement" name="global_announcement" placeholder="Digite um comunicado para exibir no topo do painel de todos os usuários..." rows="3" <?php echo !hasPermission('manage_settings') ? 'disabled' : ''; ?>></textarea>
                                     <span class="field-hint">Deixe em branco para remover o comunicado global.</span>
                                 </div>
 
                                 <div class="form-row">
                                     <div class="form-group col-6">
                                         <label for="settings-accent-color">Cor de Destaque do Sistema</label>
-                                        <select id="settings-accent-color" name="accent_color" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                        <select id="settings-accent-color" name="accent_color" <?php echo !hasPermission('manage_settings') ? 'disabled' : ''; ?>>
                                             <option value="blue">Azul Royal (Padrão)</option>
                                             <option value="green">Verde Esmeralda</option>
                                             <option value="gold">Dourado Âmbar</option>
@@ -468,7 +468,7 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                                     
                                     <div class="form-group col-6">
                                         <label for="settings-refresh-interval">Intervalo de Sincronização Automática</label>
-                                        <select id="settings-refresh-interval" name="refresh_interval" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                        <select id="settings-refresh-interval" name="refresh_interval" <?php echo !hasPermission('manage_settings') ? 'disabled' : ''; ?>>
                                             <option value="5000">5 Segundos (Muito Rápido)</option>
                                             <option value="10000">10 Segundos (Recomendado)</option>
                                             <option value="30000">30 Segundos</option>
@@ -485,7 +485,7 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                                             <span class="field-hint">Se ativado, advogados comuns poderão ver a aba de histórico de auditoria.</span>
                                         </div>
                                         <div class="switch">
-                                            <input type="checkbox" id="settings-enable-logs" name="enable_logs_for_lawyers" value="1" <?php echo $userRole !== 'admin' ? 'disabled' : ''; ?>>
+                                            <input type="checkbox" id="settings-enable-logs" name="enable_logs_for_lawyers" value="1" <?php echo !hasPermission('manage_settings') ? 'disabled' : ''; ?>>
                                             <span class="slider round"></span>
                                         </div>
                                     </label>
@@ -493,13 +493,13 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                                 
                                 <div id="settings-message" class="alert-message hidden"></div>
                                 
-                                <?php if ($userRole === 'admin'): ?>
+                                <?php if (hasPermission('manage_settings')): ?>
                                     <button type="submit" id="btn-save-settings" class="btn btn-primary">
                                         <span>Salvar Configurações</span>
                                         <div class="spinner hidden"></div>
                                     </button>
                                 <?php else: ?>
-                                    <div class="alert-message warning">Apenas usuários administradores podem editar as configurações estruturais.</div>
+                                    <div class="alert-message warning">Apenas usuários com permissão de gerenciamento podem editar as configurações estruturais.</div>
                                 <?php endif; ?>
                             </form>
                         </div>
@@ -520,6 +520,26 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                         <input type="hidden" id="employee-id" name="id">
                         <input type="hidden" id="employee-action" name="action" value="create">
                         
+                        <!-- Painel de Status & Moderação Rápida no Topo do Modal -->
+                        <div class="moderation-header-box" style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 1rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <span style="font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8;">Diretriz de Status & Moderação do Usuário</span>
+                                <span id="modal-status-badge" class="badge" style="padding: 0.25rem 0.75rem; font-size: 0.85rem; font-weight: 600; border-radius: 20px; background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.4);">🟢 ATIVO</span>
+                            </div>
+                            <div class="status-action-pills" style="display: flex; gap: 0.5rem;">
+                                <button type="button" class="btn-status-pill active-pill" id="pill-active" onclick="selectModalStatus('active')" style="flex: 1; padding: 0.6rem 0.4rem; border-radius: 6px; border: 1px solid #22c55e; background: rgba(34, 197, 94, 0.2); color: #4ade80; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                    🟢 Ativo (Liberado)
+                                </button>
+                                <button type="button" class="btn-status-pill" id="pill-suspended" onclick="selectModalStatus('suspended')" style="flex: 1; padding: 0.6rem 0.4rem; border-radius: 6px; border: 1px solid rgba(234, 179, 8, 0.3); background: rgba(234, 179, 8, 0.1); color: #facc15; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                    🟡 Punir / Suspender
+                                </button>
+                                <button type="button" class="btn-status-pill" id="pill-banned" onclick="selectModalStatus('banned')" style="flex: 1; padding: 0.6rem 0.4rem; border-radius: 6px; border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); color: #f87171; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                                    🔴 Banir (Bloquear)
+                                </button>
+                            </div>
+                            <input type="hidden" id="employee-status" name="status" value="active">
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group col-6">
                                 <label for="employee-name">Nome Completo *</label>
@@ -537,12 +557,11 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                                 <input type="password" id="employee-password" name="password" placeholder="Mínimo 6 caracteres">
                             </div>
                             <div class="form-group col-6">
-                                <label for="employee-role">Perfil de Permissão *</label>
+                                <label for="employee-role">Nível de Acesso / Perfil *</label>
                                 <select id="employee-role" name="role" required>
-                                    <option value="lawyer">Advogado (Gerencia Solicitações)</option>
-                                    <option value="admin">Administrador (Acesso Total)</option>
-                                    <option value="receptionist">Atendente (Abre Solicitações)</option>
-                                    <option value="viewer">Estagiário / Visualizador (Somente Leitura)</option>
+                                    <option value="admin">ADM (Administrador - Poder Total)</option>
+                                    <option value="moderator">Moderador (Gerencia Solicitações e Membros)</option>
+                                    <option value="member" selected>Membro (Acesso Padrão)</option>
                                 </select>
                             </div>
                         </div>
@@ -571,14 +590,6 @@ $enableLogsForLawyers = getSystemSetting('enable_logs_for_lawyers', '1');
                                 <label for="employee-contact">Contato Telefônico *</label>
                                 <input type="text" id="employee-contact" name="contact" required placeholder="(00) 00000-0000">
                             </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="employee-status">Status de Banimento / Acesso</label>
-                            <select id="employee-status" name="status">
-                                <option value="active">Ativo (Acesso Liberado)</option>
-                                <option value="banned">Banido / Suspenso (Acesso Bloqueado)</option>
-                            </select>
                         </div>
                         
                         <div id="employee-error" class="alert-message error hidden"></div>
