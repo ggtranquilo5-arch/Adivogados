@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS `settings` (
   `value` TEXT NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Supported roles: 'admin' (Administrador), 'lawyer' (Advogado), 'receptionist' (Atendente), 'viewer' (Estagiário/Visualizador)
+-- Supported status: 'active' (Ativo), 'banned' (Banido/Suspenso)
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(150) NOT NULL,

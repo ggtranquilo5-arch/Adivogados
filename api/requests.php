@@ -38,6 +38,14 @@ if ($method === 'POST') {
     $input = json_decode(file_get_contents('php://input'), true);
     $action = isset($input['action']) ? $input['action'] : '';
 
+    if (in_array($action, ['create', 'update', 'complete', 'cancel'])) {
+        if (!hasPermission('manage_requests')) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Acesso negado. Seu perfil de usuário não possui permissão para gerenciar solicitações.']);
+            exit;
+        }
+    }
+
     if ($action === 'create') {
         $title = isset($input['title']) ? trim($input['title']) : '';
         $customer_name = isset($input['customer_name']) ? trim($input['customer_name']) : '';
@@ -161,10 +169,9 @@ if ($method === 'POST') {
     }
 
     if ($action === 'delete') {
-        // Limit deletion of request logs/items to administrators
-        if ($_SESSION['user_role'] !== 'admin') {
+        if (!hasPermission('delete_requests')) {
             http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Acesso negado. Apenas administradores podem excluir solicitações.']);
+            echo json_encode(['success' => false, 'message' => 'Acesso negado. Você não possui permissão para excluir solicitações.']);
             exit;
         }
 

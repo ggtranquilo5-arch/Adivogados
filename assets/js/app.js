@@ -20,6 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check if user is logged in based on DOM elements
     const isLoggedIn = document.getElementById('login-container') === null;
 
+    // Helper to detect if account was banned in real time during any API request
+    function handleApiResponseStatus(data) {
+        if (data && data.account_banned) {
+            alert("ATENÇÃO: " + (data.message || "Sua conta foi suspensa/banida pelo administrador."));
+            window.location.reload();
+            return false;
+        }
+        return true;
+    }
+
     // -------------------------------------------------------------
     // 2. THEME CONTROLLER
     // -------------------------------------------------------------
@@ -417,62 +427,106 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // -------------------------------------------------------------
-    // 7. EMPLOYEES CRUD MODULE
+    // 7. EMPLOYEES / USERS CRUD MODULE (WITH ID & BAN SYSTEM)
     // -------------------------------------------------------------
     async function fetchEmployeesData() {
-        const response = await fetch('api/employees.php');
-        const data = await response.json();
+        try {
+            const response = await fetch('api/employees.php');
+            const data = await response.json();
 
-        if (data.success) {
-            appState.employees = data.employees;
-            renderEmployeesTable();
+            if (!handleApiResponseStatus(data)) return;
+
+            if (data.success) {
+                appState.employees = data.employees;
+                renderEmployeesTable();
+            }
+        } catch (err) {
+            console.error('Erro ao buscar dados de usuários:', err);
         }
     }
 
     function renderEmployeesTable() {
         const tbody = document.getElementById('employees-list');
-        const searchVal = document.getElementById('employee-search').value.toLowerCase();
+        const searchVal = document.getElementById('employee-search').value.toLowerCase().trim();
         
-        // Filter elements locally
+        // Filter elements locally by ID (#ID or ID), name, email, city, CPF, RG, role label
         const filtered = appState.employees.filter(emp => {
-            return emp.name.toLowerCase().includes(searchVal) ||
+            const idStr = emp.id.toString();
+            const formattedId = `#${emp.id}`.toLowerCase();
+            return idStr.includes(searchVal) ||
+                   formattedId.includes(searchVal) ||
+                   emp.name.toLowerCase().includes(searchVal) ||
                    emp.email.toLowerCase().includes(searchVal) ||
-                   emp.city.toLowerCase().includes(searchVal);
+                   emp.city.toLowerCase().includes(searchVal) ||
+                   emp.cpf.toLowerCase().includes(searchVal) ||
+                   (emp.role_label && emp.role_label.toLowerCase().includes(searchVal));
         });
 
+        const canManageUsers = CURRENT_USER.permissions && CURRENT_USER.permissions.manage_users;
+        const canBanUsers = CURRENT_USER.permissions && CURRENT_USER.permissions.ban_users;
+        const hasActions = canManageUsers || canBanUsers;
+        const totalCols = hasActions ? '8' : '7';
+
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="${CURRENT_USER.role === 'admin' ? '7' : '6'}" class="empty-cell">Nenhum funcionário encontrado.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="${totalCols}" class="empty-cell">Nenhum usuário encontrado com os critérios de busca.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = filtered.map(emp => {
-            const isAdmin = CURRENT_USER.role === 'admin';
-            const actionButtonsHtml = isAdmin ? `
-                <td class="action-cell">
-                    <button class="btn-action edit" onclick="openEmployeeModal('update', ${emp.id})" title="Editar Funcionário">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    ${emp.id !== CURRENT_USER.id ? `
-                        <button class="btn-action delete" onclick="deleteEmployee(${emp.id}, '${escapeQuote(emp.name)}')" title="Excluir Funcionário">
+            const isSelf = (emp.id === CURRENT_USER.id);
+
+            let actionButtonsHtml = '';
+            if (hasActions) {
+                actionButtonsHtml = `<td class="action-cell">`;
+                
+                if (canManageUsers) {
+                    actionButtonsHtml += `
+                        <button class="btn-action edit" onclick="openEmployeeModal('update', ${emp.id})" title="Editar Cadastro (ID: #${emp.id})">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </button>
+                    `;
+                }
+
+                if (canBanUsers && !isSelf) {
+                    if (emp.status === 'banned') {
+                        actionButtonsHtml += `
+                            <button class="btn-action unban-btn" onclick="toggleBanUser(${emp.id}, '${escapeQuote(emp.name)}', 'banned')" title="Desbanir e Liberar Acesso" style="color: #22c55e; background: rgba(34, 197, 94, 0.15);">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                            </button>
+                        `;
+                    } else {
+                        actionButtonsHtml += `
+                            <button class="btn-action ban-btn" onclick="toggleBanUser(${emp.id}, '${escapeQuote(emp.name)}', 'active')" title="Banir e Bloquear Acesso" style="color: #ef4444; background: rgba(239, 68, 68, 0.15);">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                            </button>
+                        `;
+                    }
+                }
+
+                if (canManageUsers && !isSelf) {
+                    actionButtonsHtml += `
+                        <button class="btn-action delete" onclick="deleteEmployee(${emp.id}, '${escapeQuote(emp.name)}')" title="Excluir Usuário">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                         </button>
-                    ` : ''}
-                </td>
-            ` : '';
+                    `;
+                }
 
-            const roleBadge = emp.role === 'admin' ? 
-                '<span style="color: var(--color-info); font-weight: 600;">Administrador</span>' : 
-                '<span>Advogado</span>';
+                actionButtonsHtml += `</td>`;
+            }
 
-            const statusBadge = emp.status === 'active' ?
-                '<span class="badge badge-active">Ativo</span>' :
-                '<span class="badge badge-inactive">Inativo</span>';
+            const roleLabel = emp.role_label || (emp.role === 'admin' ? 'Administrador' : (emp.role === 'receptionist' ? 'Atendente' : (emp.role === 'viewer' ? 'Estagiário' : 'Advogado')));
+            const roleBadge = `<span class="role-badge role-${emp.role}" style="font-weight: 500;">${escapeHTML(roleLabel)}</span>`;
+
+            const statusBadge = emp.status === 'banned' ?
+                '<span class="badge badge-banned" style="background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4);">BANIDO</span>' :
+                '<span class="badge badge-active" style="background: rgba(34,197,94,0.2); color: #4ade80; border: 1px solid rgba(34,197,94,0.4);">ATIVO</span>';
 
             return `
                 <tr>
+                    <td><span class="user-id-badge" style="font-weight: 700; color: var(--color-primary, #3b82f6); font-family: monospace; font-size: 0.95rem;">#${emp.id}</span></td>
                     <td>
                         <div class="employee-cell">
-                            <span class="name">${escapeHTML(emp.name)}</span>
+                            <span class="name">${escapeHTML(emp.name)} ${isSelf ? '<small class="text-muted" style="color: var(--color-info);">(Você)</small>' : ''}</span>
                             <span class="subtext">${escapeHTML(emp.email)}</span>
                         </div>
                     </td>
@@ -493,7 +547,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Set search listener with debouncing for optimal UI performance
-    document.getElementById('employee-search').addEventListener('input', debounce(renderEmployeesTable, 150));
+    const empSearchInput = document.getElementById('employee-search');
+    if (empSearchInput) {
+        empSearchInput.addEventListener('input', debounce(renderEmployeesTable, 150));
+    }
 
     // Make functions globally accessible for onclick in HTML template
     window.openEmployeeModal = async function(mode, id = null) {
@@ -510,13 +567,13 @@ document.addEventListener('DOMContentLoaded', () => {
         errorDiv.classList.add('hidden');
         
         if (mode === 'create') {
-            titleEl.textContent = 'Cadastrar Novo Funcionário';
+            titleEl.textContent = 'Cadastrar Novo Usuário';
             actionEl.value = 'create';
             idEl.value = '';
             passwordEl.required = true;
             if (passHint) passHint.classList.add('hidden');
         } else {
-            titleEl.textContent = 'Editar Dados do Funcionário';
+            titleEl.textContent = 'Editar Dados do Usuário (ID: #' + id + ')';
             actionEl.value = 'update';
             idEl.value = id;
             passwordEl.required = false;
@@ -573,6 +630,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
 
+                if (!handleApiResponseStatus(data)) return;
+
                 if (data.success) {
                     closeModal('employee-modal');
                     // AUTO-REFRESH UI: trigger sync immediately
@@ -592,8 +651,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Toggle Ban / Unban User Status
+    window.toggleBanUser = async function(id, name, currentStatus) {
+        const isBanning = (currentStatus === 'active');
+        const action = isBanning ? 'ban' : 'unban';
+        const actionLabel = isBanning ? 'BANIR' : 'DESBANIR';
+        const confirmMessage = isBanning 
+            ? `Tem certeza de que deseja BANIR o usuário "${name}" (ID: #${id})?\n\nEste usuário perderá o acesso ao sistema imediatamente.`
+            : `Deseja DESBANIR o usuário "${name}" (ID: #${id}) e liberar o acesso ao sistema novamente?`;
+
+        if (confirm(confirmMessage)) {
+            try {
+                const response = await fetch('api/employees.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action, id })
+                });
+                const data = await response.json();
+
+                if (!handleApiResponseStatus(data)) return;
+
+                if (data.success) {
+                    await fetchEmployeesData();
+                    await fetchDashboardData();
+                } else {
+                    alert(data.message || `Erro ao ${actionLabel.toLowerCase()} usuário.`);
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Erro de comunicação com o servidor ao alterar o status de banimento.');
+            }
+        }
+    };
+
     window.deleteEmployee = async function(id, name) {
-        if (confirm(`Deseja realmente remover o funcionário "${name}"? Todas as suas solicitações ativas serão associadas a "Sem responsável".`)) {
+        if (confirm(`Deseja realmente remover o usuário "${name}" (ID: #${id})? Todas as suas solicitações ativas serão associadas a "Sem responsável".`)) {
             try {
                 const response = await fetch('api/employees.php', {
                     method: 'POST',
@@ -602,16 +694,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const data = await response.json();
 
+                if (!handleApiResponseStatus(data)) return;
+
                 if (data.success) {
                     // AUTO-REFRESH UI
                     await fetchEmployeesData();
                     await fetchDashboardData();
                 } else {
-                    alert(data.message || 'Erro ao remover funcionário.');
+                    alert(data.message || 'Erro ao remover usuário.');
                 }
             } catch (err) {
                 console.error(err);
-                alert('Erro de rede ao remover funcionário.');
+                alert('Erro de rede ao remover usuário.');
             }
         }
     };
@@ -633,16 +727,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const response = await fetch('api/employees.php');
         const data = await response.json();
 
+        if (!handleApiResponseStatus(data)) return;
+
         if (data.success) {
             const selectEl = document.getElementById('request-lawyer');
             if (selectEl) {
-                // Filter active users to handle requests
+                // Filter active users to handle requests (excluding banned ones)
                 const activeEmployees = data.employees.filter(e => e.status === 'active');
                 
-                let optionsHtml = '<option value="">-- Selecione o Advogado Responsável --</option>';
+                let optionsHtml = '<option value="">-- Selecione o Responsável pelo Atendimento --</option>';
                 optionsHtml += activeEmployees.map(emp => {
-                    const roleLabel = emp.role === 'admin' ? 'Administrador' : 'Advogado';
-                    return `<option value="${emp.id}">${escapeHTML(emp.name)} (${roleLabel})</option>`;
+                    const roleLabel = emp.role_label || (emp.role === 'admin' ? 'Administrador' : 'Advogado');
+                    return `<option value="${emp.id}">${escapeHTML(emp.name)} (ID: #${emp.id} - ${roleLabel})</option>`;
                 }).join('');
                 selectEl.innerHTML = optionsHtml;
             }

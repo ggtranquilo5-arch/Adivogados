@@ -10,13 +10,16 @@ $method = $_SERVER['REQUEST_METHOD'];
 if ($method === 'GET') {
     // Check if user is currently authenticated
     if (isset($_SESSION['user_id'])) {
+        $role = $_SESSION['user_role'];
         echo json_encode([
             'success' => true,
             'user' => [
                 'id' => $_SESSION['user_id'],
                 'name' => $_SESSION['user_name'],
                 'email' => $_SESSION['user_email'],
-                'role' => $_SESSION['user_role']
+                'role' => $role,
+                'role_label' => getRoleLabel($role),
+                'permissions' => getRolePermissions($role)
             ]
         ]);
     } else {
@@ -42,32 +45,46 @@ if ($method === 'POST') {
             exit;
         }
 
-        // Query database for active user
-        $stmt = $pdo->prepare("SELECT * FROM `users` WHERE `email` = ? AND `status` = 'active'");
+        // Query database for user by email regardless of status first
+        $stmt = $pdo->prepare("SELECT * FROM `users` WHERE `email` = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($password, $user['password'])) {
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['user_name'] = $user['name'];
-            $_SESSION['user_email'] = $user['email'];
-            $_SESSION['user_role'] = $user['role'];
+        if ($user) {
+            if ($user['status'] === 'banned') {
+                echo json_encode([
+                    'success' => false,
+                    'account_banned' => true,
+                    'message' => 'Sua conta foi suspensa/banida pelo administrador. Acesso negado.'
+                ]);
+                exit;
+            }
 
-            logActivity($user['id'], $user['name'], 'Login', 'Acessou o sistema.');
+            if (password_verify($password, $user['password'])) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['user_name'] = $user['name'];
+                $_SESSION['user_email'] = $user['email'];
+                $_SESSION['user_role'] = $user['role'];
 
-            echo json_encode([
-                'success' => true,
-                'message' => 'Login efetuado com sucesso.',
-                'user' => [
-                    'id' => $user['id'],
-                    'name' => $user['name'],
-                    'email' => $user['email'],
-                    'role' => $user['role']
-                ]
-            ]);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'E-mail ou senha incorretos, ou cadastro inativo.']);
+                logActivity($user['id'], $user['name'], 'Login', "Acessou o sistema (ID: #{$user['id']}).");
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => 'Login efetuado com sucesso.',
+                    'user' => [
+                        'id' => $user['id'],
+                        'name' => $user['name'],
+                        'email' => $user['email'],
+                        'role' => $user['role'],
+                        'role_label' => getRoleLabel($user['role']),
+                        'permissions' => getRolePermissions($user['role'])
+                    ]
+                ]);
+                exit;
+            }
         }
+
+        echo json_encode(['success' => false, 'message' => 'E-mail ou senha incorretos.']);
         exit;
     }
 

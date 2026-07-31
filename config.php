@@ -38,6 +38,37 @@ try {
             $pdo->exec($sql);
         }
     }
+
+    // Verify session user status if logged in
+    if (isset($_SESSION['user_id'])) {
+        $stmtUserCheck = $pdo->prepare("SELECT status, role, name, email FROM `users` WHERE id = ?");
+        $stmtUserCheck->execute([$_SESSION['user_id']]);
+        $currentUserData = $stmtUserCheck->fetch();
+
+        if (!$currentUserData || $currentUserData['status'] === 'banned') {
+            session_unset();
+            session_destroy();
+            
+            $isApiRequest = (strpos($_SERVER['REQUEST_URI'], '/api/') !== false);
+            if ($isApiRequest) {
+                header('Content-Type: application/json; charset=utf-8');
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'account_banned' => true,
+                    'message' => 'Sua conta foi suspensa/banida pelo administrador. Acesso negado.'
+                ]);
+                exit;
+            } else {
+                header('Location: index.php?error=banned');
+                exit;
+            }
+        } else {
+            $_SESSION['user_role'] = $currentUserData['role'];
+            $_SESSION['user_name'] = $currentUserData['name'];
+            $_SESSION['user_email'] = $currentUserData['email'];
+        }
+    }
 } catch (PDOException $e) {
     // Format response based on request type
     $isApiRequest = (strpos($_SERVER['REQUEST_URI'], '/api/') !== false);
@@ -156,4 +187,75 @@ function getSystemSetting($key, $default = '') {
     } catch (Exception $e) {
         return $default;
     }
+}
+
+/**
+ * Role labels mapping for Portuguese output.
+ */
+function getRoleLabel($role) {
+    $roles = [
+        'admin' => 'Administrador',
+        'lawyer' => 'Advogado',
+        'receptionist' => 'Atendente',
+        'viewer' => 'Estagiário / Visualizador'
+    ];
+    return isset($roles[$role]) ? $roles[$role] : 'Advogado';
+}
+
+/**
+ * Role permissions definition matrix.
+ */
+function getRolePermissions($role = null) {
+    if ($role === null && isset($_SESSION['user_role'])) {
+        $role = $_SESSION['user_role'];
+    }
+
+    $permissions = [
+        'admin' => [
+            'manage_users' => true,
+            'ban_users' => true,
+            'manage_requests' => true,
+            'view_requests' => true,
+            'manage_settings' => true,
+            'view_logs' => true,
+            'delete_requests' => true
+        ],
+        'lawyer' => [
+            'manage_users' => false,
+            'ban_users' => false,
+            'manage_requests' => true,
+            'view_requests' => true,
+            'manage_settings' => false,
+            'view_logs' => (getSystemSetting('enable_logs_for_lawyers', '1') === '1'),
+            'delete_requests' => false
+        ],
+        'receptionist' => [
+            'manage_users' => false,
+            'ban_users' => false,
+            'manage_requests' => true,
+            'view_requests' => true,
+            'manage_settings' => false,
+            'view_logs' => false,
+            'delete_requests' => false
+        ],
+        'viewer' => [
+            'manage_users' => false,
+            'ban_users' => false,
+            'manage_requests' => false,
+            'view_requests' => true,
+            'manage_settings' => false,
+            'view_logs' => false,
+            'delete_requests' => false
+        ]
+    ];
+
+    return isset($permissions[$role]) ? $permissions[$role] : $permissions['lawyer'];
+}
+
+/**
+ * Check if the current user (or specified role) has a given permission capability.
+ */
+function hasPermission($permissionName, $role = null) {
+    $rolePermissions = getRolePermissions($role);
+    return !empty($rolePermissions[$permissionName]);
 }
